@@ -15,8 +15,7 @@ function createWindow() {
   });
 
   // check if we're in dev mode
-  // During dev, we pass an environment variable or just check if it's packaged
-  const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+  const isDev = !app.isPackaged;
 
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
