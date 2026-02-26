@@ -19,9 +19,15 @@ function createWindow() {
 
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
-    // mainWindow.webContents.openDevTools();
+    mainWindow.webContents.openDevTools();
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+    // Packaged sürümde asar içindeki yolu daha sağlam bulmak için app.getAppPath() kullanıyoruz
+    const indexPath = path.join(app.getAppPath(), 'dist/index.html');
+    mainWindow.loadFile(indexPath).catch(err => {
+      console.error('FaturaApp: index.html yüklenemedi:', err);
+    });
+    // Sorunu anlamak için şimdilik productionda da devtools'u açalım
+    mainWindow.webContents.openDevTools();
   }
 
   mainWindow.on('closed', () => {
