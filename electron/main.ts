@@ -26,8 +26,6 @@ function createWindow() {
     mainWindow.loadFile(indexPath).catch(err => {
       console.error('FaturaApp: index.html yüklenemedi:', err);
     });
-    // Sorunu anlamak için şimdilik productionda da devtools'u açalım
-    mainWindow.webContents.openDevTools();
   }
 
   mainWindow.on('closed', () => {

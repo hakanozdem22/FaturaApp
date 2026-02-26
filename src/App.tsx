@@ -4,12 +4,12 @@ import PdfReportGenerationDashboardOne from './views/PdfReportGenerationDashboar
 import SecurityLockoutSettings from './views/SecurityLockoutSettings';
 import StaffInvoiceUploadDashboard from './views/StaffInvoiceUploadDashboard';
 import SystemAuditLogsDashboardOne from './views/SystemAuditLogsDashboardOne';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<Navigate to="/recipients" replace />} />
@@ -21,6 +21,6 @@ export default function App() {
           <Route path="security" element={<SecurityLockoutSettings />} />
         </Route>
       </Routes>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
