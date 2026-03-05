@@ -1,16 +1,18 @@
 import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 export default function Sidebar() {
     const location = useLocation();
+    const { user, profile, signOut } = useAuth();
 
     const navItems = [
-        { name: 'Gösterge Paneli', path: '/', icon: 'dashboard' },
-        { name: 'Alıcı Listesi', path: '/recipients', icon: 'group' },
-        { name: 'Fatura Yükle', path: '/upload', icon: 'upload_file' },
-        { name: 'Onaylar', path: '/approvals', icon: 'fact_check' },
-        { name: 'Raporlar', path: '/reports', icon: 'picture_as_pdf' },
-        { name: 'Denetim Günlükleri', path: '/logs', icon: 'list_alt' },
-        { name: 'Güvenlik', path: '/security', icon: 'security' },
+        { name: 'Gösterge Paneli', path: '/', icon: 'dashboard', roles: ['admin', 'manager', 'user'] },
+        { name: 'Kullanıcı Listesi', path: '/recipients', icon: 'group', roles: ['admin', 'manager'] },
+        { name: 'Fatura Yükle', path: '/upload', icon: 'upload_file', roles: ['admin', 'manager', 'user'] },
+        { name: 'Faturalarım', path: '/my-invoices', icon: 'folder_open', roles: ['user'] },
+        { name: 'Onaylar', path: '/approvals', icon: 'fact_check', roles: ['admin', 'manager'] },
+        { name: 'Onaylanan Faturalar', path: '/approved-invoices', icon: 'task_alt', roles: ['admin', 'manager'] },
+        { name: 'Raporlar', path: '/reports', icon: 'picture_as_pdf', roles: ['admin', 'manager'] },
     ];
 
     return (
@@ -26,37 +28,51 @@ export default function Sidebar() {
                 </div>
             </div>
             <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
-                {navItems.map((item) => {
-                    const isActive = location.pathname === item.path || (location.pathname.startsWith(item.path) && item.path !== '/');
-                    return (
-                        <Link
-                            key={item.name}
-                            to={item.path}
-                            className={`flex items-center gap-3 px-3 py-3 rounded-lg transition-colors group ${isActive
-                                ? 'bg-primary/10 text-primary dark:text-primary-400'
-                                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
-                                }`}
-                        >
-                            <span className={`material-symbols-outlined ${isActive ? 'fill-1' : 'group-hover:text-primary'}`}>
-                                {item.icon}
-                            </span>
-                            <span className="font-medium text-sm">{item.name}</span>
-                        </Link>
-                    );
-                })}
+                {navItems
+                    .filter(item => {
+                        // Eğer role kısıtlaması yoksa göster
+                        if (!item.roles) return true;
+                        // Profil varsa ve rolü izin verilenler arasındaysa göster
+                        if (profile && item.roles.includes(profile.role)) return true;
+                        // Profil yüklenemediyse ama varsayılan olarak 'user' rolüne izin veriliyorsa göster (Fallback)
+                        if (!profile && item.roles.includes('user')) return true;
+
+                        return false;
+                    })
+                    .map((item) => {
+                        const isActive = location.pathname === item.path || (location.pathname.startsWith(item.path) && item.path !== '/');
+                        return (
+                            <Link
+                                key={item.name}
+                                to={item.path}
+                                className={`flex items-center gap-3 px-3 py-3 rounded-lg transition-colors group ${isActive
+                                    ? 'bg-primary/10 text-primary dark:text-primary-400'
+                                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+                                    }`}
+                            >
+                                <span className={`material-symbols-outlined ${isActive ? 'fill-1' : 'group-hover:text-primary'}`}>
+                                    {item.icon}
+                                </span>
+                                <span className="font-medium text-sm">{item.name}</span>
+                            </Link>
+                        );
+                    })}
             </nav>
             <div className="p-4 border-t border-border-light dark:border-border-dark">
-                <div className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer">
+                <div
+                    className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
+                    onClick={() => signOut()}
+                >
                     <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center overflow-hidden">
-                        <img
-                            alt="Admin User"
-                            className="w-full h-full object-cover"
-                            src="https://lh3.googleusercontent.com/aida-public/AB6AXuDDfkBRyQahAmYNCMpvHSKutmsPB9_a86B2hhdUkPqZn8eoRdI5wmtQuWjUVAhHaddEay0tCRVX6jTY8ui58-rt1wLTpWG0M283eDBa6cvdTcfOjAZxg3jfqqauM8yPPefpbw_gg8gs3uqMpYs3crMHxcCZ6QZZDF-G83kNCmYi0MHCVjgWBadxF2Zy5PK_lMvcZ9vLVKlLj5ub3fYF0iiB_ZONffrPlwrCxyWSRoQq_5QX6_Rfu5OHa4gkARQ5j2RW_HVjY1ABoc90"
-                        />
+                        <span className="material-symbols-outlined text-slate-500">person</span>
                     </div>
                     <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-900 dark:text-white truncate">Alex Morgan</p>
-                        <p className="text-xs text-slate-500 truncate">Sistem Yöneticisi</p>
+                        <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
+                            {profile?.full_name || user?.email || 'Kullanıcı'}
+                        </p>
+                        <p className="text-xs text-slate-500 truncate capitalize">
+                            {profile?.role === 'manager' ? 'Müdür' : profile?.role === 'admin' ? 'Admin' : 'Kullanıcı'}
+                        </p>
                     </div>
                     <span className="material-symbols-outlined text-slate-400 text-[18px]">logout</span>
                 </div>

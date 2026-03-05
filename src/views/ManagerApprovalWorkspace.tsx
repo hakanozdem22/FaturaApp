@@ -106,11 +106,6 @@ export default function ManagerApprovalWorkspace() {
       <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-6 shrink-0 z-10">
         <div className="flex items-center gap-4">
           <h2 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">Onay Çalışma Alanı</h2>
-          <div className="hidden md:flex h-6 w-px bg-slate-200 dark:bg-slate-700 mx-2"></div>
-          <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 px-3 py-1 rounded-full border border-emerald-100 dark:border-emerald-900/50">
-            <span className="material-symbols-outlined text-sm font-bold">lock</span>
-            <span className="text-xs font-bold uppercase tracking-wide">MFA Korumalı</span>
-          </div>
         </div>
         <div className="flex items-center gap-4">
           {/*  Status Message  */}

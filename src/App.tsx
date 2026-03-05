@@ -1,26 +1,94 @@
+import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import Layout from './components/Layout';
 import EmailRecipientsManagementScreen from './views/EmailRecipientsManagementScreen';
 import ManagerApprovalWorkspace from './views/ManagerApprovalWorkspace';
 import PdfReportGenerationDashboardOne from './views/PdfReportGenerationDashboardOne';
-import SecurityLockoutSettings from './views/SecurityLockoutSettings';
 import StaffInvoiceUploadDashboard from './views/StaffInvoiceUploadDashboard';
-import SystemAuditLogsDashboardOne from './views/SystemAuditLogsDashboardOne';
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
-import Layout from './components/Layout';
+import LoginScreen from './views/LoginScreen';
+import RegisterScreen from './views/RegisterScreen';
+import PendingApprovalScreen from './views/PendingApprovalScreen';
+import ApprovedInvoicesScreen from './views/ApprovedInvoicesScreen';
+import MyInvoicesScreen from './views/MyInvoicesScreen';
+import { AuthProvider, useAuth } from './context/AuthContext';
+
+// Protected Route Component
+const ProtectedRoute = ({ children, requireRole }: { children: React.ReactNode, requireRole?: string[] }) => {
+  const { user, profile, loading } = useAuth();
+  const location = useLocation();
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center">Yükleniyor...</div>;
+  }
+
+  if (!user) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (profile?.status === 'pending_approval') {
+    return <PendingApprovalScreen />;
+  }
+
+  if (requireRole && profile && !requireRole.includes(profile.role)) {
+    return <div className="min-h-screen flex items-center justify-center">Bu sayfaya erişim yetkiniz yok.</div>;
+  }
+
+  return <>{children}</>;
+};
+
+const IndexRoute = () => {
+  const { profile } = useAuth();
+  if (profile?.role === 'user') {
+    return <Navigate to="/upload" replace />;
+  }
+  return <Navigate to="/recipients" replace />;
+};
+
+function AppRoutes() {
+  return (
+    <Routes>
+      <Route path="/login" element={<LoginScreen />} />
+      <Route path="/register" element={<RegisterScreen />} />
+
+      <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+        <Route index element={<IndexRoute />} />
+        <Route path="recipients" element={
+          <ProtectedRoute requireRole={['admin', 'manager']}>
+            <EmailRecipientsManagementScreen />
+          </ProtectedRoute>
+        } />
+        <Route path="upload" element={<StaffInvoiceUploadDashboard />} />
+        <Route path="approvals" element={
+          <ProtectedRoute requireRole={['admin', 'manager']}>
+            <ManagerApprovalWorkspace />
+          </ProtectedRoute>
+        } />
+        <Route path="approved-invoices" element={
+          <ProtectedRoute requireRole={['admin', 'manager']}>
+            <ApprovedInvoicesScreen />
+          </ProtectedRoute>
+        } />
+        <Route path="my-invoices" element={
+          <ProtectedRoute requireRole={['user']}>
+            <MyInvoicesScreen />
+          </ProtectedRoute>
+        } />
+        <Route path="reports" element={
+          <ProtectedRoute requireRole={['admin', 'manager']}>
+            <PdfReportGenerationDashboardOne />
+          </ProtectedRoute>
+        } />
+      </Route>
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+}
 
 export default function App() {
   return (
-    <HashRouter>
-      <Routes>
-        <Route path="/" element={<Layout />}>
-          <Route index element={<Navigate to="/recipients" replace />} />
-          <Route path="recipients" element={<EmailRecipientsManagementScreen />} />
-          <Route path="upload" element={<StaffInvoiceUploadDashboard />} />
-          <Route path="approvals" element={<ManagerApprovalWorkspace />} />
-          <Route path="reports" element={<PdfReportGenerationDashboardOne />} />
-          <Route path="logs" element={<SystemAuditLogsDashboardOne />} />
-          <Route path="security" element={<SecurityLockoutSettings />} />
-        </Route>
-      </Routes>
-    </HashRouter>
+    <AuthProvider>
+      <HashRouter>
+        <AppRoutes />
+      </HashRouter>
+    </AuthProvider>
   );
 }

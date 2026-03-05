@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { FileUp, Loader2, CheckCircle2, AlertCircle, ScanText } from 'lucide-react';
 import { extractInvoiceData } from '../utils/ocrService';
+import { useAuth } from '../context/AuthContext';
 
 interface Invoice {
     id: string;
@@ -11,6 +12,7 @@ interface Invoice {
     amount: number;
     status: string;
     file_url?: string;
+    user_id?: string;
 }
 
 export default function StaffInvoiceUploadDashboard() {
@@ -20,6 +22,7 @@ export default function StaffInvoiceUploadDashboard() {
     const [isLoading, setIsLoading] = useState(true);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [invoiceToDelete, setInvoiceToDelete] = useState<{ id: string, fileUrl: string | undefined } | null>(null);
+    const { user, profile } = useAuth();
 
     // YENİ: Ön izleme modalı state'leri
     const [showPreviewModal, setShowPreviewModal] = useState(false);
@@ -31,11 +34,13 @@ export default function StaffInvoiceUploadDashboard() {
 
     // Faturaları Supabase'den çek
     const fetchInvoices = async () => {
+        if (!user) return;
         setIsLoading(true);
         try {
             const { data, error } = await supabase
                 .from('invoices')
                 .select('*')
+                .eq('user_id', user.id)
                 .order('created_at', { ascending: false });
 
             if (error) {
@@ -51,16 +56,18 @@ export default function StaffInvoiceUploadDashboard() {
     };
 
     useEffect(() => {
-        fetchInvoices();
-    }, []);
+        if (user) {
+            fetchInvoices();
+        }
+    }, [user]);
 
     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
 
-        // Dosya boyutu kontrolü (Maks 10MB)
-        if (file.size > 10 * 1024 * 1024) {
-            setUploadStatus({ type: 'error', message: 'Dosya boyutu 10MB\'dan küçük olmalıdır.' });
+        // Dosya boyutu kontrolü (Maks 20MB)
+        if (file.size > 20 * 1024 * 1024) {
+            setUploadStatus({ type: 'error', message: 'Dosya boyutu 20MB\'dan küçük olmalıdır.' });
             return;
         }
 
@@ -103,6 +110,7 @@ export default function StaffInvoiceUploadDashboard() {
                 amount: extractedData.amount || (Math.floor(Math.random() * 5000) + 100),
                 status: 'Bekliyor',
                 file_url: publicUrl,
+                user_id: user?.id,
             });
 
             setPreviewFileUrl(URL.createObjectURL(file)); // Daha hızlı önizleme için local object url
@@ -250,16 +258,12 @@ export default function StaffInvoiceUploadDashboard() {
 
                                 <div className="space-y-4">
                                     <div className="bg-slate-50 border border-slate-100 dark:bg-slate-800/50 dark:border-slate-800 p-4 rounded-xl flex items-center gap-4">
-                                        <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden flex-shrink-0">
-                                            <img
-                                                alt="Admin User"
-                                                className="w-full h-full object-cover"
-                                                src="https://lh3.googleusercontent.com/aida-public/AB6AXuDDfkBRyQahAmYNCMpvHSKutmsPB9_a86B2hhdUkPqZn8eoRdI5wmtQuWjUVAhHaddEay0tCRVX6jTY8ui58-rt1wLTpWG0M283eDBa6cvdTcfOjAZxg3jfqqauM8yPPefpbw_gg8gs3uqMpYs3crMHxcCZ6QZZDF-G83kNCmYi0MHCVjgWBadxF2Zy5PK_lMvcZ9vLVKlLj5ub3fYF0iiB_ZONffrPlwrCxyWSRoQq_5QX6_Rfu5OHa4gkARQ5j2RW_HVjY1ABoc90"
-                                            />
+                                        <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center text-lg font-bold flex-shrink-0 border border-primary/20">
+                                            {profile?.full_name ? profile.full_name[0].toUpperCase() : 'U'}
                                         </div>
                                         <div>
                                             <p className="text-xs text-slate-500 dark:text-slate-400">Yükleyen Personel</p>
-                                            <p className="text-sm font-semibold text-slate-900 dark:text-white">Alex Morgan</p>
+                                            <p className="text-sm font-semibold text-slate-900 dark:text-white">{profile?.full_name || user?.email}</p>
                                         </div>
                                     </div>
 
@@ -365,7 +369,7 @@ export default function StaffInvoiceUploadDashboard() {
                 {/*  Header  */}
                 <header className="flex flex-col gap-1">
                     <h2 className="text-3xl font-bold text-slate-900 dark:text-white">Fatura Paneli</h2>
-                    <p className="text-slate-500 dark:text-slate-400">Onay için gönderdiğiniz son faturaları yönetin ve takip edin (Bulut Entegreli).</p>
+                    <p className="text-slate-500 dark:text-slate-400">Onay için gönderdiğiniz son faturaları yönetin ve takip edin.</p>
                 </header>
 
                 {/*  Stats Overview */}
@@ -399,8 +403,8 @@ export default function StaffInvoiceUploadDashboard() {
                 <div className="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
                     <div className="border-b border-slate-100 p-6 dark:border-slate-800 flex justify-between items-center">
                         <div>
-                            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Yeni Fatura Yükle (Bulut)</h3>
-                            <p className="text-sm text-slate-500 dark:text-slate-400">Finans ekibine belgelerinizi güvenli bir şekilde aktarın.</p>
+                            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Yeni Fatura Yükle</h3>
+                            <p className="text-sm text-slate-500 dark:text-slate-400">Belgelerinizi güvenli bir şekilde aktarın.</p>
                         </div>
                         {uploadStatus.message && (
                             <div className={`text-sm px-4 py-2 rounded-md flex items-center gap-2 
@@ -430,7 +434,7 @@ export default function StaffInvoiceUploadDashboard() {
                                 {isUploading ? 'Yapay Zeka Faturayı İnceliyor...' : 'PDF veya Fotoğraf faturanızı seçmek için tıklayın'}
                             </p>
                             <p className="mt-4 text-xs text-slate-400 dark:text-slate-500">
-                                Desteklenen formatlar: PDF, JPG, PNG (Maks 10MB)
+                                Desteklenen formatlar: PDF, JPG, PNG (Maks 20MB)
                             </p>
                         </label>
                     </div>
