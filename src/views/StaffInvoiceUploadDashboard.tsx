@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabaseClient';
 import { FileUp, Loader2, CheckCircle2, AlertCircle, ScanText } from 'lucide-react';
 import { extractInvoiceData } from '../utils/ocrService';
 import { useAuth } from '../context/AuthContext';
+import { logAction } from '../lib/logger';
 
 interface Invoice {
     id: string;
@@ -149,6 +150,14 @@ export default function StaffInvoiceUploadDashboard() {
 
             setUploadStatus({ type: 'success', message: 'Fatura onaya başarıyla gönderildi.' });
             fetchInvoices(); // Listeyi yenile
+
+            // YENİ: Başarılı Yükleme Logu
+            await logAction(
+                user?.email,
+                'Fatura Yükleme',
+                `Fatura yüklendi: ${pendingInvoiceData.invoice_no} (${pendingInvoiceData.company_name}) - ₺${pendingInvoiceData.amount}`
+            );
+
             setPendingInvoiceData(null);
         } catch (error: unknown) {
             console.error('Kayıt hatası:', error);
@@ -196,6 +205,14 @@ export default function StaffInvoiceUploadDashboard() {
             // Listeyi UI'da güncelle
             setInvoices(invoices.filter(inv => inv.id !== id));
             setUploadStatus({ type: 'success', message: 'Fatura başarıyla silindi.' });
+
+            // YENİ: Başarılı Silme Logu
+            await logAction(
+                user?.email,
+                'Fatura Silme (Kullanıcı İşlemi)',
+                `Bekleyen fatura silindi: ID = ${id}`
+            );
+
             setTimeout(() => setUploadStatus({ type: 'idle', message: '' }), 3000);
 
         } catch (error: unknown) {

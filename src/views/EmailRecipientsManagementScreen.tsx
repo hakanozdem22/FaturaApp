@@ -2,13 +2,17 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import type { UserProfile, UserRole } from '../context/AuthContext';
+import { Trash2, AlertTriangle, X, Loader2 } from 'lucide-react';
+import { logAction } from '../lib/logger';
 
 export default function EmailRecipientsManagementScreen() {
-    const { profile } = useAuth();
+    const { profile, user } = useAuth();
     const [users, setUsers] = useState<UserProfile[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [roleFilter, setRoleFilter] = useState('Tüm Roller');
+    const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean, id: string, userName: string }>({ isOpen: false, id: '', userName: '' });
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const fetchUsers = async () => {
         setLoading(true);
@@ -32,6 +36,12 @@ export default function EmailRecipientsManagementScreen() {
             console.error('Error updating status:', error);
             alert('Durum güncellenirken bir hata oluştu.');
         } else {
+            const targetUser = users.find(u => u.id === userId);
+            await logAction(
+                user?.email,
+                'Kullanıcı Durumu Güncelleme',
+                `${targetUser?.full_name || 'Bilinmeyen'} adlı kullanıcının durumu '${newStatus}' olarak değiştirildi.`
+            );
             fetchUsers();
         }
     };
@@ -42,7 +52,40 @@ export default function EmailRecipientsManagementScreen() {
             console.error('Error updating role:', error);
             alert('Rol güncellenirken bir hata oluştu.');
         } else {
+            const targetUser = users.find(u => u.id === userId);
+            await logAction(
+                user?.email,
+                'Kullanıcı Yetkisi Güncelleme',
+                `${targetUser?.full_name || 'Bilinmeyen'} adlı kullanıcının rolü '${newRole}' olarak değiştirildi.`
+            );
             fetchUsers();
+        }
+    };
+
+    const handleDeleteClick = (id: string, userName: string) => {
+        setDeleteModal({ isOpen: true, id, userName });
+    };
+
+    const confirmDelete = async () => {
+        setIsDeleting(true);
+        try {
+            const { error } = await supabase.from('users').delete().eq('id', deleteModal.id);
+            if (error) {
+                console.error('Kullanıcı silme hatası:', error);
+            } else {
+                setUsers(prev => prev.filter(u => u.id !== deleteModal.id));
+
+                await logAction(
+                    user?.email,
+                    'Kullanıcı Silme',
+                    `${deleteModal.userName} adlı kullanıcı sistemden tamamen silindi.`
+                );
+            }
+        } catch (err) {
+            console.error('Beklenmeyen hata:', err);
+        } finally {
+            setIsDeleting(false);
+            setDeleteModal({ isOpen: false, id: '', userName: '' });
         }
     };
 
@@ -91,7 +134,7 @@ export default function EmailRecipientsManagementScreen() {
                             <select
                                 value={roleFilter}
                                 onChange={(e) => setRoleFilter(e.target.value)}
-                                className="block w-full pl-3 pr-10 py-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:outline-none focus:ring-primary focus:border-primary rounded-lg"
+                                className="block w-full pl-3 pr-10 py-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-primary focus:border-primary rounded-lg"
                             >
                                 <option>Tüm Roller</option>
                                 <option>Admin</option>
@@ -147,7 +190,7 @@ export default function EmailRecipientsManagementScreen() {
                                                     disabled={user.id === profile?.id}
                                                     value={user.role}
                                                     onChange={(e) => handleRoleChange(user.id, e.target.value as UserRole)}
-                                                    className="pl-3 pr-8 py-1 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:outline-none focus:ring-primary focus:border-primary rounded-lg text-xs"
+                                                    className="pl-3 pr-8 py-1 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-primary focus:border-primary rounded-lg text-xs"
                                                 >
                                                     <option value="user">Kullanıcı</option>
                                                     <option value="manager">Müdür</option>
@@ -190,6 +233,13 @@ export default function EmailRecipientsManagementScreen() {
                                                                 <span className="material-symbols-outlined text-[20px]">cancel</span>
                                                             </button>
                                                         )}
+                                                        <button
+                                                            onClick={() => handleDeleteClick(user.id, user.full_name || 'Bu kullanıcı')}
+                                                            className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
+                                                            title="Kullanıcıyı Sil"
+                                                        >
+                                                            <Trash2 size={20} />
+                                                        </button>
                                                     </div>
                                                 )}
                                             </td>
@@ -201,6 +251,62 @@ export default function EmailRecipientsManagementScreen() {
                     </div>
                 </div>
             </div>
+
+            {/* Custom Delete Confirmation Modal */}
+            {deleteModal.isOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 border border-slate-200 dark:border-slate-800">
+                        <div className="flex justify-between items-start p-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center text-red-600 dark:text-red-400 shrink-0">
+                                    <AlertTriangle size={20} />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">Kullanıcıyı Sil</h3>
+                                    <p className="text-sm text-slate-500 dark:text-slate-400">Bu işlem geri alınamaz</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => !isDeleting && setDeleteModal({ isOpen: false, id: '', userName: '' })}
+                                className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 p-1.5 rounded-lg transition-colors"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className="p-6">
+                            <p className="text-slate-600 dark:text-slate-300">
+                                <span className="font-bold text-slate-900 dark:text-white">{deleteModal.userName}</span> adlı kullanıcıyı silmek istediğinize çok emin misiniz? Kullanıcı hesabı sistemden tamamen kalıcı bir şekilde silinecektir.
+                            </p>
+                        </div>
+                        <div className="p-5 flex items-center justify-end gap-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/80">
+                            <button
+                                onClick={() => setDeleteModal({ isOpen: false, id: '', userName: '' })}
+                                disabled={isDeleting}
+                                className="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-200 dark:focus:ring-slate-700 transition-colors"
+                            >
+                                İptal
+                            </button>
+                            <button
+                                onClick={confirmDelete}
+                                disabled={isDeleting}
+                                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900 transition-colors disabled:opacity-50"
+                            >
+                                {isDeleting ? (
+                                    <>
+                                        <Loader2 className="animate-spin" size={16} />
+                                        Siliniyor...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Trash2 size={16} />
+                                        Evet, Sil
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </>
     );
 }

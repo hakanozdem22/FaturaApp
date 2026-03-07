@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { Loader2, CheckCircle2, AlertCircle, XCircle } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { logAction } from '../lib/logger';
+import { PDFDocument } from 'pdf-lib';
+import { v4 as uuidv4 } from 'uuid';
 
 interface Invoice {
   id: string;
@@ -19,6 +23,7 @@ export default function ManagerApprovalWorkspace() {
   const [actionStatus, setActionStatus] = useState<{ type: 'idle' | 'success' | 'error', message: string }>({ type: 'idle', message: '' });
   const [isProcessing, setIsProcessing] = useState(false);
   const [rejectNote, setRejectNote] = useState('');
+  const { user } = useAuth();
 
   const fetchPendingInvoices = async () => {
     setIsLoading(true);
@@ -57,14 +62,105 @@ export default function ManagerApprovalWorkspace() {
     if (!selectedInvoice || isProcessing) return;
     setIsProcessing(true);
     try {
+      let finalFileUrl = selectedInvoice.file_url;
+
+      // Eğer PDF ise ve kullanıcının (yöneticinin) kaşesi varsa, PDF'i damgala
+      const isPdf = selectedInvoice.file_url?.toLowerCase().endsWith('.pdf');
+      const userProfile = user ? await supabase.from('users').select('stamp_url').eq('id', user.id).single() : null;
+      const stampUrl = userProfile?.data?.stamp_url;
+
+      if (isPdf && stampUrl && selectedInvoice.file_url) {
+        setActionStatus({ type: 'idle', message: 'Kaşe ekleniyor...' });
+
+        try {
+          // 1. Orijinal PDF'i indir
+          const existingPdfBytes = await fetch(selectedInvoice.file_url).then(res => res.arrayBuffer());
+
+          // 2. Kaşeyi indir
+          const stampImageBytes = await fetch(stampUrl).then(res => res.arrayBuffer());
+
+          // 3. PDF ve Kaşe resmini oku
+          const pdfDoc = await PDFDocument.load(existingPdfBytes);
+
+          let stampImage;
+          if (stampUrl.toLowerCase().includes('.png')) {
+            stampImage = await pdfDoc.embedPng(stampImageBytes);
+          } else {
+            stampImage = await pdfDoc.embedJpg(stampImageBytes);
+          }
+
+          const pages = pdfDoc.getPages();
+          // Sadece ilk sayfaya ekle
+          if (pages.length > 0) {
+            const firstPage = pages[0];
+            const { width } = firstPage.getSize();
+
+            // Calculate proportional size (max 150px width or 20% of page width)
+            const maxStampWidth = Math.min(150, width * 0.2);
+            const scaleFactor = maxStampWidth / stampImage.width;
+            const stampDims = stampImage.scale(scaleFactor);
+
+            // Calculate safe position (bottom right corner with padding)
+            // Padding of 40 units from right and bottom edges
+            const paddingX = 40;
+            const paddingY = 40;
+            const safeX = Math.max(0, width - stampDims.width - paddingX);
+            const safeY = Math.max(0, paddingY);
+
+            // Kaşeyi güvenli koordinatlara yerleştir
+            firstPage.drawImage(stampImage, {
+              x: safeX,
+              y: safeY,
+              width: stampDims.width,
+              height: stampDims.height,
+            });
+          }
+
+          // 4. Yeni PDF'i kaydet
+          const pdfBytes = await pdfDoc.save();
+
+          // 5. Yeni PDF'i Supabase Storage'a yükle (invoices-pdfs/stamped)
+          const newFileName = `stamped_${uuidv4()}.pdf`;
+          const pdfBlob = new Blob([pdfBytes as unknown as BlobPart], { type: 'application/pdf' });
+
+          const { error: uploadError } = await supabase.storage
+            .from('invoices-pdfs')
+            .upload(`stamped/${newFileName}`, pdfBlob, {
+              contentType: 'application/pdf',
+            });
+
+          if (uploadError) throw new Error("Damgalı PDF yüklenemedi: " + uploadError.message);
+
+          // 6. Yeni dosyanın public URL'sini al
+          const { data: { publicUrl } } = supabase.storage
+            .from('invoices-pdfs')
+            .getPublicUrl(`stamped/${newFileName}`);
+
+          finalFileUrl = publicUrl;
+          setActionStatus({ type: 'idle', message: 'Fatura onaylanıyor...' });
+        } catch (pdfError) {
+          console.error("PDF Damgalama Hatası:", pdfError);
+          // Hata olursa damgasız onaya devam et (opsiyonel)
+          setActionStatus({ type: 'error', message: 'Kaşe eklenemedi, normal onay yapılıyor...' });
+        }
+      }
+
       const { error } = await supabase
         .from('invoices')
-        .update({ status: 'Onaylandı' })
+        .update({ status: 'Onaylandı', file_url: finalFileUrl })
         .eq('id', selectedInvoice.id);
 
       if (error) throw error;
 
       setActionStatus({ type: 'success', message: `Fatura #${selectedInvoice.invoice_no} onaylandı.` });
+
+      // YENİ: Başarılı Onay Logu
+      await logAction(
+        user?.email,
+        'Fatura Onaylama',
+        `Fatura #${selectedInvoice.invoice_no} onaylandı: ₺${selectedInvoice.amount}`
+      );
+
       setSelectedInvoice(null);
       await fetchPendingInvoices();
     } catch (error) {
@@ -88,6 +184,14 @@ export default function ManagerApprovalWorkspace() {
       if (error) throw error;
 
       setActionStatus({ type: 'success', message: `Fatura #${selectedInvoice.invoice_no} reddedildi.` });
+
+      // YENİ: Başarılı Red Logu
+      await logAction(
+        user?.email,
+        'Fatura Reddetme',
+        `Fatura #${selectedInvoice.invoice_no} reddedildi. Not: ${rejectNote || 'Belirtilmedi'}`
+      );
+
       setRejectNote('');
       setSelectedInvoice(null);
       await fetchPendingInvoices();

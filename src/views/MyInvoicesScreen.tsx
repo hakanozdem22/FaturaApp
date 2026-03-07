@@ -29,7 +29,7 @@ export default function MyInvoicesScreen() {
                 .select('*')
                 .eq('user_id', user.id)
                 .in('status', ['Onaylandı', 'Reddedildi'])
-                .order('updated_at', { ascending: false });
+                .order('created_at', { ascending: false });
 
             if (error) {
                 console.error("Fatura çekme hatası:", error);

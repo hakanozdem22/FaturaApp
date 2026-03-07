@@ -2,13 +2,14 @@ import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-d
 import Layout from './components/Layout';
 import EmailRecipientsManagementScreen from './views/EmailRecipientsManagementScreen';
 import ManagerApprovalWorkspace from './views/ManagerApprovalWorkspace';
-import PdfReportGenerationDashboardOne from './views/PdfReportGenerationDashboardOne';
+import SystemLogsScreen from './views/SystemLogsScreen';
 import StaffInvoiceUploadDashboard from './views/StaffInvoiceUploadDashboard';
 import LoginScreen from './views/LoginScreen';
 import RegisterScreen from './views/RegisterScreen';
 import PendingApprovalScreen from './views/PendingApprovalScreen';
 import ApprovedInvoicesScreen from './views/ApprovedInvoicesScreen';
 import MyInvoicesScreen from './views/MyInvoicesScreen';
+import SettingsScreen from './views/SettingsScreen';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 // Protected Route Component
@@ -72,9 +73,14 @@ function AppRoutes() {
             <MyInvoicesScreen />
           </ProtectedRoute>
         } />
-        <Route path="reports" element={
+        <Route path="system-logs" element={
           <ProtectedRoute requireRole={['admin', 'manager']}>
-            <PdfReportGenerationDashboardOne />
+            <SystemLogsScreen />
+          </ProtectedRoute>
+        } />
+        <Route path="settings" element={
+          <ProtectedRoute>
+            <SettingsScreen />
           </ProtectedRoute>
         } />
       </Route>

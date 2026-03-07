@@ -1,7 +1,12 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-export default function Sidebar() {
+interface SidebarProps {
+    isCollapsed?: boolean;
+    toggleSidebar?: () => void;
+}
+
+export default function Sidebar({ isCollapsed = false, toggleSidebar }: SidebarProps) {
     const location = useLocation();
     const { user, profile, signOut } = useAuth();
 
@@ -12,22 +17,36 @@ export default function Sidebar() {
         { name: 'Faturalarım', path: '/my-invoices', icon: 'folder_open', roles: ['user'] },
         { name: 'Onaylar', path: '/approvals', icon: 'fact_check', roles: ['admin', 'manager'] },
         { name: 'Onaylanan Faturalar', path: '/approved-invoices', icon: 'task_alt', roles: ['admin', 'manager'] },
-        { name: 'Raporlar', path: '/reports', icon: 'picture_as_pdf', roles: ['admin', 'manager'] },
+        { name: 'Sistem Kayıtları', path: '/system-logs', icon: 'manage_search', roles: ['admin', 'manager'] },
+        { name: 'Ayarlar', path: '/settings', icon: 'settings', roles: ['admin', 'manager', 'user'] },
     ];
 
     return (
-        <aside className="hidden md:flex flex-col w-64 bg-surface-light dark:bg-surface-dark border-r border-border-light dark:border-border-dark h-screen fixed left-0 top-0 z-20">
-            <div className="p-6 flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white">
+        <aside className={`hidden md:flex flex-col ${isCollapsed ? 'w-20' : 'w-64'} bg-surface-light dark:bg-surface-dark border-r border-border-light dark:border-border-dark h-screen fixed left-0 top-0 z-20 transition-all duration-300`}>
+            <div className={`py-6 flex items-center ${isCollapsed ? 'justify-center px-4' : 'gap-3 px-6'} overflow-hidden`}>
+                <div className="w-8 h-8 rounded-lg bg-primary flex shrink-0 items-center justify-center text-white" title={isCollapsed ? "Fatura Yöneticisi" : undefined}>
                     <span className="material-symbols-outlined text-[20px]">description</span>
                 </div>
-                <div>
-                    <h1 className="font-bold text-lg text-slate-900 dark:text-white leading-tight">
-                        Fatura<br /><span className="text-primary">Yöneticisi</span>
-                    </h1>
-                </div>
+                {!isCollapsed && (
+                    <div className="min-w-0 flex-1">
+                        <h1 className="font-bold text-lg text-slate-900 dark:text-white leading-tight truncate">
+                            Fatura<br /><span className="text-primary">Yöneticisi</span>
+                        </h1>
+                    </div>
+                )}
+                {toggleSidebar && (
+                    <button
+                        onClick={toggleSidebar}
+                        className={`absolute right-[-12px] top-6 w-6 h-6 bg-white dark:bg-surface-dark border border-border-light dark:border-border-dark rounded-full flex items-center justify-center text-slate-500 hover:text-primary transition-colors cursor-pointer z-30 shadow-sm`}
+                        title={isCollapsed ? 'Menüyü Genişlet' : 'Menüyü Daralt'}
+                    >
+                        <span className="material-symbols-outlined text-[14px]">
+                            {isCollapsed ? 'keyboard_double_arrow_right' : 'keyboard_double_arrow_left'}
+                        </span>
+                    </button>
+                )}
             </div>
-            <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
+            <nav className={`flex-1 ${isCollapsed ? 'px-2' : 'px-4'} py-4 space-y-1 overflow-y-auto`}>
                 {navItems
                     .filter(item => {
                         // Eğer role kısıtlaması yoksa göster
@@ -45,36 +64,42 @@ export default function Sidebar() {
                             <Link
                                 key={item.name}
                                 to={item.path}
-                                className={`flex items-center gap-3 px-3 py-3 rounded-lg transition-colors group ${isActive
+                                title={isCollapsed ? item.name : undefined}
+                                className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3 px-3'} py-3 rounded-lg transition-colors group ${isActive
                                     ? 'bg-primary/10 text-primary dark:text-primary-400'
                                     : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
                                     }`}
                             >
-                                <span className={`material-symbols-outlined ${isActive ? 'fill-1' : 'group-hover:text-primary'}`}>
+                                <span className={`material-symbols-outlined ${isActive ? 'fill-1' : 'group-hover:text-primary'} shrink-0`}>
                                     {item.icon}
                                 </span>
-                                <span className="font-medium text-sm">{item.name}</span>
+                                {!isCollapsed && <span className="font-medium text-sm truncate">{item.name}</span>}
                             </Link>
                         );
                     })}
             </nav>
-            <div className="p-4 border-t border-border-light dark:border-border-dark">
+            <div className={`p-4 border-t border-border-light dark:border-border-dark flex flex-col ${isCollapsed ? 'gap-4 items-center' : 'gap-2'}`}>
                 <div
-                    className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
+                    className={`flex items-center ${isCollapsed ? 'justify-center w-10 h-10' : 'gap-3 px-3 py-2 w-full'} rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer transition-colors`}
                     onClick={() => signOut()}
+                    title={isCollapsed ? 'Çıkış Yap' : undefined}
                 >
-                    <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center overflow-hidden">
+                    <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex flex-shrink-0 items-center justify-center overflow-hidden">
                         <span className="material-symbols-outlined text-slate-500">person</span>
                     </div>
-                    <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
-                            {profile?.full_name || user?.email || 'Kullanıcı'}
-                        </p>
-                        <p className="text-xs text-slate-500 truncate capitalize">
-                            {profile?.role === 'manager' ? 'Müdür' : profile?.role === 'admin' ? 'Admin' : 'Kullanıcı'}
-                        </p>
-                    </div>
-                    <span className="material-symbols-outlined text-slate-400 text-[18px]">logout</span>
+                    {!isCollapsed && (
+                        <>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
+                                    {profile?.full_name || user?.email || 'Kullanıcı'}
+                                </p>
+                                <p className="text-xs text-slate-500 truncate capitalize">
+                                    {profile?.role === 'manager' ? 'Müdür' : profile?.role === 'admin' ? 'Admin' : 'Kullanıcı'}
+                                </p>
+                            </div>
+                            <span className="material-symbols-outlined text-slate-400 text-[18px] shrink-0">logout</span>
+                        </>
+                    )}
                 </div>
             </div>
         </aside>

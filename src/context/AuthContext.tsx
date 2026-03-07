@@ -12,6 +12,7 @@ export interface UserProfile {
     full_name: string;
     role: UserRole;
     status: UserStatus;
+    stamp_url?: string;
 }
 
 interface AuthContextType {
