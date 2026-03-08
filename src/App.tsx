@@ -41,6 +41,9 @@ const IndexRoute = () => {
   if (profile?.role === 'user') {
     return <Navigate to="/upload" replace />;
   }
+  if (profile?.role === 'muhasebe') {
+    return <Navigate to="/approved-invoices" replace />;
+  }
   return <Navigate to="/recipients" replace />;
 };
 
@@ -64,7 +67,7 @@ function AppRoutes() {
           </ProtectedRoute>
         } />
         <Route path="approved-invoices" element={
-          <ProtectedRoute requireRole={['admin', 'manager']}>
+          <ProtectedRoute requireRole={['admin', 'manager', 'muhasebe']}>
             <ApprovedInvoicesScreen />
           </ProtectedRoute>
         } />

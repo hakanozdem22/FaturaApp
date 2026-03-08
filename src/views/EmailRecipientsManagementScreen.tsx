@@ -22,7 +22,9 @@ export default function EmailRecipientsManagementScreen() {
             console.error('Error fetching users:', error);
         } else {
             console.log('Fetched users list:', data);
-            setUsers(data as UserProfile[]);
+            // Hide soft-deleted users
+            const activeUsers = (data as UserProfile[]).filter(u => u.status !== 'deleted');
+            setUsers(activeUsers);
         }
         setLoading(false);
     };
@@ -81,16 +83,17 @@ export default function EmailRecipientsManagementScreen() {
     const confirmDelete = async () => {
         setIsDeleting(true);
         try {
-            const { error } = await supabase.from('users').delete().eq('id', deleteModal.id);
+            const { error } = await supabase.from('users').update({ status: 'deleted' }).eq('id', deleteModal.id);
             if (error) {
                 console.error('Kullanıcı silme hatası:', error);
+                alert('Silme işlemi sırasında hata oluştu.');
             } else {
                 setUsers(prev => prev.filter(u => u.id !== deleteModal.id));
 
                 await logAction(
                     user?.email,
                     'Kullanıcı Silme',
-                    `${deleteModal.userName} adlı kullanıcı sistemden tamamen silindi.`
+                    `${deleteModal.userName} adlı kullanıcı sistemden gizlendi (Soft Delete).`
                 );
             }
         } catch (err) {
@@ -106,11 +109,14 @@ export default function EmailRecipientsManagementScreen() {
     };
 
     const filteredUsers = users.filter(user => {
+        if (user.status === 'deleted') return false;
+
         const matchesSearch = user.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
             user.email?.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesRole = roleFilter === 'Tüm Roller' ||
             (roleFilter === 'Müdür' && user.role === 'manager') ||
             (roleFilter === 'Admin' && user.role === 'admin') ||
+            (roleFilter === 'Muhasebe' && user.role === 'muhasebe') ||
             (roleFilter === 'Kullanıcı' && user.role === 'user');
         return matchesSearch && matchesRole;
     });
@@ -147,6 +153,7 @@ export default function EmailRecipientsManagementScreen() {
                             <option>Admin</option>
                             <option>Müdür</option>
                             <option>Kullanıcı</option>
+                            <option>Muhasebe</option>
                         </select>
                     </div>
                     <button onClick={fetchUsers} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors border border-transparent hover:border-primary/20" title="Yenile">
@@ -189,8 +196,12 @@ export default function EmailRecipientsManagementScreen() {
                                     <tr key={user.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group">
                                         <td className="px-6 py-4">
                                             <div className="flex items-center">
-                                                <div className="h-9 w-9 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm mr-3 border border-primary/20">
-                                                    {getInitials(user.full_name || 'U')}
+                                                <div className="h-9 w-9 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm mr-3 border border-primary/20 overflow-hidden shrink-0">
+                                                    {user.avatar_url ? (
+                                                        <img src={user.avatar_url} alt={user.full_name} className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        getInitials(user.full_name || 'U')
+                                                    )}
                                                 </div>
                                                 <div>
                                                     <div className="text-sm font-medium text-slate-900 dark:text-white">{user.full_name}</div>
@@ -210,6 +221,7 @@ export default function EmailRecipientsManagementScreen() {
                                                 <option value="user">Kullanıcı</option>
                                                 <option value="manager">Müdür</option>
                                                 <option value="admin">Admin</option>
+                                                <option value="muhasebe">Muhasebe</option>
                                             </select>
                                         </td>
                                         <td className="px-6 py-4 text-center">
@@ -230,7 +242,7 @@ export default function EmailRecipientsManagementScreen() {
                                         <td className="px-6 py-4 text-right text-sm font-medium">
                                             {user.id !== profile?.id && (
                                                 <div className="flex items-center justify-end gap-2">
-                                                    {user.status !== 'active' && (
+                                                    {user.status !== 'active' && user.status !== 'deleted' && (
                                                         <button
                                                             onClick={() => handleStatusChange(user.id, 'active')}
                                                             className="p-1.5 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-md transition-colors"
@@ -239,7 +251,7 @@ export default function EmailRecipientsManagementScreen() {
                                                             <span className="material-symbols-outlined text-[20px]">check_circle</span>
                                                         </button>
                                                     )}
-                                                    {user.status !== 'rejected' && (
+                                                    {user.status !== 'rejected' && user.status !== 'deleted' && (
                                                         <button
                                                             onClick={() => handleStatusChange(user.id, 'rejected')}
                                                             className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"

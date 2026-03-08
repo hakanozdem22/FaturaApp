@@ -4,8 +4,8 @@ import { supabase } from '../lib/supabaseClient';
 import type { Session, User } from '@supabase/supabase-js';
 import { logAction } from '../lib/logger';
 
-export type UserRole = 'admin' | 'manager' | 'user';
-export type UserStatus = 'pending_approval' | 'active' | 'rejected';
+export type UserRole = 'admin' | 'manager' | 'user' | 'muhasebe';
+export type UserStatus = 'pending_approval' | 'active' | 'rejected' | 'deleted';
 
 export interface UserProfile {
     id: string;
@@ -14,6 +14,7 @@ export interface UserProfile {
     role: UserRole;
     status: UserStatus;
     stamp_url?: string;
+    avatar_url?: string;
 }
 
 interface AuthContextType {

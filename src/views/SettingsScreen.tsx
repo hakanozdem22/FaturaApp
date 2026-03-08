@@ -13,6 +13,11 @@ export default function SettingsScreen() {
     const [stampUploadMessage, setStampUploadMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    // Avatar upload states
+    const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+    const [avatarUploadMessage, setAvatarUploadMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+    const avatarInputRef = useRef<HTMLInputElement>(null);
+
     // Yalnızca admin veya manager program ayarlarını görebilir
     const canViewProgramSettings = profile?.role === 'admin' || profile?.role === 'manager';
 
@@ -68,6 +73,57 @@ export default function SettingsScreen() {
         }
     };
 
+    const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !user) return;
+
+        // Avatar boyutu maks 2MB
+        if (file.size > 2 * 1024 * 1024) {
+            setAvatarUploadMessage({ type: 'error', text: 'Dosya boyutu 2MB\'dan küçük olmalıdır.' });
+            return;
+        }
+
+        setIsUploadingAvatar(true);
+        setAvatarUploadMessage(null);
+
+        try {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `avatars/${user.id}_${Date.now()}.${fileExt}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('invoices-pdfs')
+                .upload(fileName, file, { upsert: true });
+
+            if (uploadError) throw uploadError;
+
+            const { data: { publicUrl } } = supabase.storage
+                .from('invoices-pdfs')
+                .getPublicUrl(fileName);
+
+            const { error: dbError } = await supabase
+                .from('users')
+                .update({ avatar_url: publicUrl })
+                .eq('id', user.id);
+
+            if (dbError) throw dbError;
+
+            if (refreshProfile) {
+                await refreshProfile();
+            }
+
+            setAvatarUploadMessage({ type: 'success', text: 'Profil fotoğrafı güncellendi.' });
+            await logAction(user?.email, 'Profil Güncelleme', 'Profil fotoğrafı yüklendi');
+        } catch (error: any) {
+            console.error('Profil fotoğrafı yükleme hatası detaylı:', error);
+            const errorMessage = error?.message || 'Yükleme sırasında hata oluştu.';
+            setAvatarUploadMessage({ type: 'error', text: errorMessage });
+        } finally {
+            setIsUploadingAvatar(false);
+            if (avatarInputRef.current) avatarInputRef.current.value = '';
+            setTimeout(() => setAvatarUploadMessage(null), 5000);
+        }
+    };
+
     return (
         <div className="p-6 max-w-7xl mx-auto w-full">
             <div className="mb-6">
@@ -111,6 +167,53 @@ export default function SettingsScreen() {
                                     <input type="text" className="w-full px-4 py-2 rounded-lg border border-border-light dark:border-border-dark bg-slate-50 dark:bg-surface-dark/50 text-slate-500 outline-none" value={profile?.role === 'admin' ? 'Yönetici' : profile?.role === 'manager' ? 'Müdür' : 'Kullanıcı'} disabled />
                                 </div>
                             </div>
+                            {/* Profil Fotoğrafı Yükleme Bölümü */}
+                            <div className="pt-6 border-t border-border-light dark:border-border-dark mt-6">
+                                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">Profil Fotoğrafı</h3>
+                                <div className="flex flex-col sm:flex-row gap-6 items-start">
+                                    <div className="w-full sm:w-1/4 flex flex-col items-center">
+                                        <div className="w-32 h-32 rounded-full border-2 border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex items-center justify-center overflow-hidden relative">
+                                            {profile?.avatar_url ? (
+                                                <img src={profile.avatar_url} alt="Kullanıcı Profil Fotoğrafı" className="w-full h-full object-cover" />
+                                            ) : (
+                                                <div className="text-slate-400 flex flex-col items-center justify-center">
+                                                    <span className="material-symbols-outlined text-4xl">account_circle</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="w-full sm:w-3/4 space-y-4">
+                                        <p className="text-sm text-slate-600 dark:text-slate-400">
+                                            Sistemde isminizin yanında görünecek bir fotoğraf (PNG, JPG) seçebilirsiniz. Diğer kullanıcılar listelerde sizi bu şekilde görecek.
+                                        </p>
+
+                                        <input
+                                            type="file"
+                                            ref={avatarInputRef}
+                                            onChange={handleAvatarUpload}
+                                            accept=".jpg, .jpeg, .png, .webp"
+                                            className="hidden"
+                                            id="avatar-upload"
+                                            disabled={isUploadingAvatar}
+                                        />
+                                        <label
+                                            htmlFor="avatar-upload"
+                                            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer ${isUploadingAvatar ? 'bg-slate-100 text-slate-400 cursor-not-allowed dark:bg-slate-800 dark:text-slate-500' : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-700'}`}
+                                        >
+                                            {isUploadingAvatar ? <Loader2 className="animate-spin" size={18} /> : <UploadCloud size={18} />}
+                                            {isUploadingAvatar ? 'Yükleniyor...' : (profile?.avatar_url ? 'Fotoğrafı Değiştir' : 'Fotoğraf Seç ve Yükle')}
+                                        </label>
+
+                                        {avatarUploadMessage && (
+                                            <div className={`text-sm px-3 py-2 rounded-md flex items-center gap-2 ${avatarUploadMessage.type === 'success' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400' : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400'}`}>
+                                                {avatarUploadMessage.type === 'success' ? <CheckCircle2 size={16} /> : <span className="material-symbols-outlined text-[16px]">error</span>}
+                                                {avatarUploadMessage.text}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
                             <div className="pt-4 border-t border-border-light dark:border-border-dark flex justify-end">
                                 <button className="px-6 py-2 bg-primary text-white font-medium rounded-lg hover:bg-primary-600 transition-colors">
                                     Değişiklikleri Kaydet

@@ -15,9 +15,9 @@ export default function Sidebar({ isCollapsed = false, toggleSidebar }: SidebarP
         { name: 'Fatura / İrsaliye Yükle', path: '/upload', icon: 'upload_file', roles: ['admin', 'manager', 'user'] },
         { name: 'Faturalarım', path: '/my-invoices', icon: 'folder_open', roles: ['user'] },
         { name: 'Onaylar', path: '/approvals', icon: 'fact_check', roles: ['admin', 'manager'] },
-        { name: 'Onaylanan Faturalar', path: '/approved-invoices', icon: 'task_alt', roles: ['admin', 'manager'] },
+        { name: 'Onaylanan Faturalar', path: '/approved-invoices', icon: 'task_alt', roles: ['admin', 'manager', 'muhasebe'] },
         { name: 'Sistem Kayıtları', path: '/system-logs', icon: 'manage_search', roles: ['admin', 'manager'] },
-        { name: 'Ayarlar', path: '/settings', icon: 'settings', roles: ['admin', 'manager', 'user'] },
+        { name: 'Ayarlar', path: '/settings', icon: 'settings', roles: ['admin', 'manager', 'user', 'muhasebe'] },
     ];
 
     return (
@@ -84,7 +84,11 @@ export default function Sidebar({ isCollapsed = false, toggleSidebar }: SidebarP
                     title={isCollapsed ? 'Çıkış Yap' : undefined}
                 >
                     <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 flex flex-shrink-0 items-center justify-center overflow-hidden">
-                        <span className="material-symbols-outlined text-slate-500">person</span>
+                        {profile?.avatar_url ? (
+                            <img src={profile.avatar_url} alt="Profil" className="w-full h-full object-cover" />
+                        ) : (
+                            <span className="material-symbols-outlined text-slate-500">person</span>
+                        )}
                     </div>
                     {!isCollapsed && (
                         <>
@@ -93,7 +97,7 @@ export default function Sidebar({ isCollapsed = false, toggleSidebar }: SidebarP
                                     {profile?.full_name || user?.email || 'Kullanıcı'}
                                 </p>
                                 <p className="text-xs text-slate-500 truncate capitalize">
-                                    {profile?.role === 'manager' ? 'Müdür' : profile?.role === 'admin' ? 'Admin' : 'Kullanıcı'}
+                                    {profile?.role === 'manager' ? 'Müdür' : profile?.role === 'admin' ? 'Admin' : profile?.role === 'muhasebe' ? 'Muhasebe' : 'Kullanıcı'}
                                 </p>
                             </div>
                             <span className="material-symbols-outlined text-slate-400 text-[18px] shrink-0">logout</span>
