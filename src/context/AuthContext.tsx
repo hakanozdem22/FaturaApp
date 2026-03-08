@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import type { Session, User } from '@supabase/supabase-js';
+import { logAction } from '../lib/logger';
 
 export type UserRole = 'admin' | 'manager' | 'user';
 export type UserStatus = 'pending_approval' | 'active' | 'rejected';
@@ -104,6 +105,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }, []);
 
     const signOut = async () => {
+        await logAction(user?.email, 'Sistemden Çıkış', 'Kullanıcı oturumu kapattı');
         await supabase.auth.signOut();
     };
 

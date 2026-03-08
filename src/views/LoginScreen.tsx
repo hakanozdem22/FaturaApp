@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { Link, useNavigate } from 'react-router-dom';
+import { logAction } from '../lib/logger';
 
 export default function LoginScreen() {
     const navigate = useNavigate();
@@ -22,8 +23,10 @@ export default function LoginScreen() {
         if (error) {
             console.error("Login hata:", error);
             setError(error.message);
+            await logAction(email, 'Başarısız Giriş Denemesi', `Hata: ${error.message}`);
         } else {
             console.log("Login başarılı, user:", data.user);
+            await logAction(data.user?.email, 'Sisteme Giriş', 'Başarılı giriş yapıldı');
             navigate('/');
         }
 

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { Link, useNavigate } from 'react-router-dom';
+import { logAction } from '../lib/logger';
 
 export default function RegisterScreen() {
     const navigate = useNavigate();
@@ -46,6 +47,7 @@ export default function RegisterScreen() {
                 }
 
                 setSuccess(true);
+                await logAction(email, 'Yeni Kayıt', `${fullName} adıyla yeni hesap oluşturuldu`);
                 // navigate will be handled after reading success state or redirecting directly
             }
 

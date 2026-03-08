@@ -11,9 +11,8 @@ export default function Sidebar({ isCollapsed = false, toggleSidebar }: SidebarP
     const { user, profile, signOut } = useAuth();
 
     const navItems = [
-        { name: 'Gösterge Paneli', path: '/', icon: 'dashboard', roles: ['admin', 'manager', 'user'] },
         { name: 'Kullanıcı Listesi', path: '/recipients', icon: 'group', roles: ['admin', 'manager'] },
-        { name: 'Fatura Yükle', path: '/upload', icon: 'upload_file', roles: ['admin', 'manager', 'user'] },
+        { name: 'Fatura / İrsaliye Yükle', path: '/upload', icon: 'upload_file', roles: ['admin', 'manager', 'user'] },
         { name: 'Faturalarım', path: '/my-invoices', icon: 'folder_open', roles: ['user'] },
         { name: 'Onaylar', path: '/approvals', icon: 'fact_check', roles: ['admin', 'manager'] },
         { name: 'Onaylanan Faturalar', path: '/approved-invoices', icon: 'task_alt', roles: ['admin', 'manager'] },

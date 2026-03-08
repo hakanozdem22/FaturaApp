@@ -20,16 +20,23 @@ export default function ApprovedInvoicesScreen() {
     const [searchQuery, setSearchQuery] = useState('');
     const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean, id: string, invoiceNo: string }>({ isOpen: false, id: '', invoiceNo: '' });
     const [isDeleting, setIsDeleting] = useState(false);
-    const { user } = useAuth();
+    const { user, profile } = useAuth();
 
     const fetchApprovedInvoices = async () => {
         setIsLoading(true);
         try {
-            const { data, error } = await supabase
+            let query = supabase
                 .from('invoices')
                 .select('*')
                 .eq('status', 'Onaylandı')
                 .order('created_at', { ascending: false });
+
+            // Müdürler sadece kendi onayladıkları faturaları görsün
+            if (profile?.role === 'manager' && user?.id) {
+                query = query.eq('approved_by', user.id);
+            }
+
+            const { data, error } = await query;
 
             if (error) {
                 console.error("Fatura çekme hatası:", error);

@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabaseClient';
 import { Loader2, UploadCloud, CheckCircle2 } from 'lucide-react';
+import { logAction } from '../lib/logger';
 
 export default function SettingsScreen() {
     const [activeTab, setActiveTab] = useState<'user' | 'program'>('user');
@@ -55,6 +56,7 @@ export default function SettingsScreen() {
             }
 
             setStampUploadMessage({ type: 'success', text: 'Kaşe başarıyla yüklendi.' });
+            await logAction(user?.email, 'Kaşe Yükleme', 'Yeni kaşe/imza görseli yüklendi');
         } catch (error: unknown) {
             console.error('Kaşe yükleme hatası:', error);
             const errorMessage = error instanceof Error ? error.message : 'Yükleme sırasında hata oluştu.';

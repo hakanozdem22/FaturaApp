@@ -14,6 +14,14 @@ interface Invoice {
     status: string;
     file_url?: string;
     user_id?: string;
+    document_type?: string;
+    assigned_manager_id?: string;
+}
+
+interface Manager {
+    id: string;
+    full_name: string;
+    email: string;
 }
 
 export default function StaffInvoiceUploadDashboard() {
@@ -23,6 +31,7 @@ export default function StaffInvoiceUploadDashboard() {
     const [isLoading, setIsLoading] = useState(true);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [invoiceToDelete, setInvoiceToDelete] = useState<{ id: string, fileUrl: string | undefined } | null>(null);
+    const [managers, setManagers] = useState<Manager[]>([]);
     const { user, profile } = useAuth();
 
     // YENİ: Ön izleme modalı state'leri
@@ -56,9 +65,28 @@ export default function StaffInvoiceUploadDashboard() {
         }
     };
 
+    const fetchManagers = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('users')
+                .select('id, full_name, email')
+                .eq('role', 'manager')
+                .eq('status', 'active');
+
+            if (error) {
+                console.error("Müdürleri çekme hatası:", error);
+            } else {
+                setManagers(data || []);
+            }
+        } catch (err) {
+            console.error("Beklenmeyen hata:", err);
+        }
+    };
+
     useEffect(() => {
         if (user) {
             fetchInvoices();
+            fetchManagers();
         }
     }, [user]);
 
@@ -73,14 +101,14 @@ export default function StaffInvoiceUploadDashboard() {
         }
 
         setIsUploading(true);
-        setUploadStatus({ type: 'info', message: 'Fatura Hazırlanıyor...' });
+        setUploadStatus({ type: 'info', message: 'Belge Hazırlanıyor...' });
 
         try {
             // --- YENİ EKLENEN OCR AŞAMASI ---
             setUploadStatus({ type: 'info', message: 'Belgeden metin çıkarılıyor (OCR)... Bu işlem biraz sürebilir.' });
             const extractedData = await extractInvoiceData(file);
 
-            setUploadStatus({ type: 'info', message: 'Fatura buluta yükleniyor...' });
+            setUploadStatus({ type: 'info', message: 'Belge buluta yükleniyor...' });
 
             // DOSYAYI STORAGE'A YÜKLE
             const fileExt = file.name.split('.').pop();
@@ -112,6 +140,8 @@ export default function StaffInvoiceUploadDashboard() {
                 status: 'Bekliyor',
                 file_url: publicUrl,
                 user_id: user?.id,
+                document_type: '', // Başlangıçta boş
+                assigned_manager_id: '', // Başlangıçta boş
             });
 
             setPreviewFileUrl(URL.createObjectURL(file)); // Daha hızlı önizleme için local object url
@@ -135,7 +165,18 @@ export default function StaffInvoiceUploadDashboard() {
     const handleConfirmSubmit = async () => {
         if (!pendingInvoiceData) return;
 
-        setUploadStatus({ type: 'info', message: 'Fatura sisteme kaydediliyor...' });
+        // Validasyonlar
+        if (!pendingInvoiceData.document_type) {
+            setUploadStatus({ type: 'error', message: 'Lütfen belge tipini (Fatura/İrsaliye) seçiniz.' });
+            return;
+        }
+
+        if (!pendingInvoiceData.assigned_manager_id) {
+            setUploadStatus({ type: 'error', message: 'Lütfen belgeyi onaylayacak müdürü seçiniz.' });
+            return;
+        }
+
+        setUploadStatus({ type: 'info', message: 'Belge sisteme kaydediliyor...' });
         setShowPreviewModal(false);
 
         try {
@@ -145,17 +186,17 @@ export default function StaffInvoiceUploadDashboard() {
 
             if (dbError) {
                 console.error("Veritabanı kayıt hatası:", dbError);
-                throw new Error("Fatura bilgileri kaydedilemedi.");
+                throw new Error("Belge bilgileri kaydedilemedi.");
             }
 
-            setUploadStatus({ type: 'success', message: 'Fatura onaya başarıyla gönderildi.' });
+            setUploadStatus({ type: 'success', message: 'Belge onaya başarıyla gönderildi.' });
             fetchInvoices(); // Listeyi yenile
 
             // YENİ: Başarılı Yükleme Logu
             await logAction(
                 user?.email,
-                'Fatura Yükleme',
-                `Fatura yüklendi: ${pendingInvoiceData.invoice_no} (${pendingInvoiceData.company_name}) - ₺${pendingInvoiceData.amount}`
+                'Belge Yükleme',
+                `${pendingInvoiceData.document_type} yüklendi: ${pendingInvoiceData.invoice_no} (${pendingInvoiceData.company_name}) - ₺${pendingInvoiceData.amount}`
             );
 
             setPendingInvoiceData(null);
@@ -204,20 +245,20 @@ export default function StaffInvoiceUploadDashboard() {
 
             // Listeyi UI'da güncelle
             setInvoices(invoices.filter(inv => inv.id !== id));
-            setUploadStatus({ type: 'success', message: 'Fatura başarıyla silindi.' });
+            setUploadStatus({ type: 'success', message: 'Belge başarıyla silindi.' });
 
             // YENİ: Başarılı Silme Logu
             await logAction(
                 user?.email,
-                'Fatura Silme (Kullanıcı İşlemi)',
-                `Bekleyen fatura silindi: ID = ${id}`
+                'Belge Silme (Kullanıcı İşlemi)',
+                `Bekleyen belge silindi: ID = ${id}`
             );
 
             setTimeout(() => setUploadStatus({ type: 'idle', message: '' }), 3000);
 
         } catch (error: unknown) {
             console.error('Silme hatası:', error);
-            setUploadStatus({ type: 'error', message: 'Fatura silinirken bir hata oluştu.' });
+            setUploadStatus({ type: 'error', message: 'Belge silinirken bir hata oluştu.' });
             setTimeout(() => setUploadStatus({ type: 'idle', message: '' }), 5000);
         }
     };
@@ -245,13 +286,13 @@ export default function StaffInvoiceUploadDashboard() {
                         {/* Sol Taraf: Medya Önizleme (Şimdi Daha Büyük) */}
                         <div className="w-full md:w-3/5 bg-slate-100 dark:bg-slate-950 p-4 border-b md:border-b-0 md:border-r border-slate-200 dark:border-slate-800 min-h-[400px] flex flex-col">
                             <h3 className="text-sm font-semibold text-slate-500 mb-3 flex items-center gap-2">
-                                <ScanText size={16} /> Fatura Belgesi
+                                <ScanText size={16} /> Orijinal Belge
                             </h3>
                             <div className="flex-1 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex justify-center items-center">
                                 {previewFileType?.includes('pdf') ? (
                                     <embed src={previewFileUrl || ''} type="application/pdf" className="w-full h-full object-contain" />
                                 ) : (
-                                    <img src={previewFileUrl || ''} alt="Fatura" className="max-w-full max-h-full object-contain p-2" />
+                                    <img src={previewFileUrl || ''} alt="Belge" className="max-w-full max-h-full object-contain p-2" />
                                 )}
                             </div>
                         </div>
@@ -259,12 +300,12 @@ export default function StaffInvoiceUploadDashboard() {
                         {/* Sağ Taraf: OCR Bilgileri ve Onay (Form) */}
                         <div className="w-full md:w-2/5 p-6 flex flex-col justify-between overflow-y-auto">
                             <div>
-                                <div className="border-b border-slate-100 dark:border-slate-800 pb-4 mb-6">
+                                <div className="border-b border-slate-100 dark:border-slate-800 pb-4 mb-4">
                                     <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
                                         <CheckCircle2 className="text-emerald-500" />
-                                        Müdür Onayına Sun
+                                        Onaya Gönder
                                     </h3>
-                                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Yapay zeka tarafından aşağıdaki bilgiler faturadan çıkarıldı.</p>
+                                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Belge detaylarını kontrol edip onaya asistan müdürü seçiniz.</p>
 
                                     {/* Uyarı Mesajı */}
                                     <div className="mt-3 flex items-start gap-2 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-400 p-3 rounded-lg border border-amber-200 dark:border-amber-800/50">
@@ -286,6 +327,36 @@ export default function StaffInvoiceUploadDashboard() {
 
                                     {/* Düzenlenebilir Form Alanları */}
                                     <div className="space-y-3">
+                                        <div className="grid grid-cols-2 gap-3 mb-2">
+                                            <div>
+                                                <label className="text-xs font-bold text-red-500 dark:text-red-400 mb-1 block">Belge Tipi *</label>
+                                                <select
+                                                    value={pendingInvoiceData.document_type || ''}
+                                                    onChange={(e) => setPendingInvoiceData({ ...pendingInvoiceData, document_type: e.target.value })}
+                                                    className="w-full text-sm font-medium text-slate-900 dark:text-white bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/50 p-2.5 rounded-lg focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                                                >
+                                                    <option value="" disabled>Seçiniz...</option>
+                                                    <option value="Fatura">Fatura</option>
+                                                    <option value="İrsaliye">İrsaliye</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="text-xs font-bold text-red-500 dark:text-red-400 mb-1 block">Onaylayacak Müdür *</label>
+                                                <select
+                                                    value={pendingInvoiceData.assigned_manager_id || ''}
+                                                    onChange={(e) => setPendingInvoiceData({ ...pendingInvoiceData, assigned_manager_id: e.target.value })}
+                                                    className="w-full text-sm font-medium text-slate-900 dark:text-white bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/50 p-2.5 rounded-lg focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                                                >
+                                                    <option value="" disabled>Müdür Seçin...</option>
+                                                    {managers.map(manager => (
+                                                        <option key={manager.id} value={manager.id}>
+                                                            {manager.full_name || manager.email}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        </div>
+
                                         <div>
                                             <label className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1 block">Şirket/Ünvan</label>
                                             <input
@@ -298,7 +369,7 @@ export default function StaffInvoiceUploadDashboard() {
                                         </div>
                                         <div className="grid grid-cols-2 gap-3">
                                             <div>
-                                                <label className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1 block">Fatura Numarası</label>
+                                                <label className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1 block">Belge/Fatura Numarası</label>
                                                 <input
                                                     type="text"
                                                     value={pendingInvoiceData.invoice_no || ''}
@@ -359,10 +430,10 @@ export default function StaffInvoiceUploadDashboard() {
                             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 text-red-600 dark:bg-red-900/30">
                                 <AlertCircle size={24} />
                             </div>
-                            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Faturayı Sil</h3>
+                            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Belgeyi Sil</h3>
                         </div>
                         <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">
-                            Bu faturayı ve bağlı olduğu PDF dosyasını kalıcı olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz.
+                            Bu belgeyi ve bağlı olduğu PDF dosyasını kalıcı olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz.
                         </p>
                         <div className="mt-6 flex justify-end gap-3">
                             <button
@@ -385,8 +456,8 @@ export default function StaffInvoiceUploadDashboard() {
             <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 p-8">
                 {/*  Header  */}
                 <header className="flex flex-col gap-1">
-                    <h2 className="text-3xl font-bold text-slate-900 dark:text-white">Fatura Paneli</h2>
-                    <p className="text-slate-500 dark:text-slate-400">Onay için gönderdiğiniz son faturaları yönetin ve takip edin.</p>
+                    <h2 className="text-3xl font-bold text-slate-900 dark:text-white">Fatura / İrsaliye Paneli</h2>
+                    <p className="text-slate-500 dark:text-slate-400">Onay için gönderdiğiniz son belgeleri yönetin ve takip edin.</p>
                 </header>
 
                 {/*  Stats Overview */}
@@ -420,7 +491,7 @@ export default function StaffInvoiceUploadDashboard() {
                 <div className="rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
                     <div className="border-b border-slate-100 p-6 dark:border-slate-800 flex justify-between items-center">
                         <div>
-                            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Yeni Fatura Yükle</h3>
+                            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Yeni Belge Yükle</h3>
                             <p className="text-sm text-slate-500 dark:text-slate-400">Belgelerinizi güvenli bir şekilde aktarın.</p>
                         </div>
                         {uploadStatus.message && (
@@ -448,7 +519,7 @@ export default function StaffInvoiceUploadDashboard() {
                                 {isUploading ? <ScanText className="animate-pulse text-primary" size={32} /> : <FileUp size={32} />}
                             </div>
                             <p className="text-lg font-medium text-slate-900 dark:text-white">
-                                {isUploading ? 'Yapay Zeka Faturayı İnceliyor...' : 'PDF veya Fotoğraf faturanızı seçmek için tıklayın'}
+                                {isUploading ? 'Yapay Zeka Belgeyi İnceliyor...' : 'Fatura veya İrsaliyenizi (PDF/Fotoğraf) seçmek için tıklayın'}
                             </p>
                             <p className="mt-4 text-xs text-slate-400 dark:text-slate-500">
                                 Desteklenen formatlar: PDF, JPG, PNG (Maks 20MB)
@@ -465,8 +536,9 @@ export default function StaffInvoiceUploadDashboard() {
                             <table className="w-full min-w-[600px] text-left text-sm">
                                 <thead className="border-b border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-800/50">
                                     <tr>
+                                        <th className="px-6 py-4 font-semibold text-slate-900 dark:text-white">Belge Tipi</th>
                                         <th className="px-6 py-4 font-semibold text-slate-900 dark:text-white">Şirket/Firma</th>
-                                        <th className="px-6 py-4 font-semibold text-slate-900 dark:text-white">Fatura No</th>
+                                        <th className="px-6 py-4 font-semibold text-slate-900 dark:text-white">Belge No</th>
                                         <th className="px-6 py-4 font-semibold text-slate-900 dark:text-white">Gönderim Tarihi</th>
                                         <th className="px-6 py-4 font-semibold text-slate-900 dark:text-white">Tutar</th>
                                         <th className="px-6 py-4 font-semibold text-slate-900 dark:text-white">Durum</th>
@@ -476,7 +548,7 @@ export default function StaffInvoiceUploadDashboard() {
                                 <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
                                     {isLoading ? (
                                         <tr>
-                                            <td colSpan={6} className="px-6 py-8 text-center text-slate-500">
+                                            <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
                                                 <div className="flex justify-center items-center gap-2">
                                                     <Loader2 className="animate-spin" size={20} /> Veriler yükleniyor...
                                                 </div>
@@ -484,13 +556,21 @@ export default function StaffInvoiceUploadDashboard() {
                                         </tr>
                                     ) : invoices.length === 0 ? (
                                         <tr>
-                                            <td colSpan={6} className="px-6 py-8 text-center text-slate-500">
-                                                Henüz fatura yüklenmemiş.
+                                            <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
+                                                Henüz belge yüklenmemiş.
                                             </td>
                                         </tr>
                                     ) : (
                                         invoices.map((invoice) => (
                                             <tr key={invoice.id} className="group hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                                                <td className="px-6 py-4">
+                                                    <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium border ${invoice.document_type === 'İrsaliye'
+                                                            ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800/50'
+                                                            : 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800/50'
+                                                        }`}>
+                                                        {invoice.document_type || 'Belirtilmedi'}
+                                                    </span>
+                                                </td>
                                                 <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">
                                                     {invoice.company_name || <span className="text-slate-400 italic">Bilinmiyor</span>}
                                                 </td>
