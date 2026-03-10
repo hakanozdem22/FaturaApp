@@ -160,7 +160,7 @@ export default function ManagerApprovalWorkspace() {
       await logAction(
         user?.email,
         'Belge Onaylama',
-        `${selectedInvoice.document_type || 'Belge'} #${selectedInvoice.invoice_no} onaylandı: ₺${selectedInvoice.amount}`
+        `${selectedInvoice.document_type || 'Belge'} #${selectedInvoice.invoice_no} onaylandı: ${selectedInvoice.document_type === 'İrsaliye' ? `${selectedInvoice.amount} kg` : `₺${selectedInvoice.amount}`}`
       );
 
       setSelectedInvoice(null);
@@ -211,6 +211,94 @@ export default function ManagerApprovalWorkspace() {
     invoice.invoice_no?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const pendingFaturas = filteredInvoices.filter(inv => inv.document_type !== 'İrsaliye');
+  const pendingIrsaliyes = filteredInvoices.filter(inv => inv.document_type === 'İrsaliye');
+
+  const renderTable = (data: Invoice[], title: string, emptyMessage: string) => (
+    <div className="mb-2">
+      <h3 className="text-xl font-bold text-slate-800 dark:text-slate-200 mb-4 px-1">{title}</h3>
+      <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
+              <tr>
+                <th className="px-6 py-4 font-semibold text-slate-900 dark:text-white">Şirket/Firma</th>
+                <th className="px-6 py-4 font-semibold text-slate-900 dark:text-white">Belge No</th>
+                <th className="px-6 py-4 font-semibold text-slate-900 dark:text-white">Gönderim Tarihi</th>
+                <th className="px-6 py-4 font-semibold text-slate-900 dark:text-white">Tutar/Miktar</th>
+                <th className="px-6 py-4 font-semibold text-slate-900 dark:text-white">Durum</th>
+                <th className="px-6 py-4 font-semibold text-slate-900 dark:text-white text-right">İşlemler</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+              {isLoading ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
+                    <div className="flex justify-center items-center gap-2">
+                      <Loader2 className="animate-spin" size={24} /> Veriler yükleniyor...
+                    </div>
+                  </td>
+                </tr>
+              ) : data.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-12 text-center">
+                    <div className="flex flex-col items-center justify-center">
+                      <CheckCircle2 size={40} className="text-emerald-400/50 mb-3" />
+                      <p className="text-slate-500 font-medium">
+                        {emptyMessage}
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                data.map((invoice) => (
+                  <tr key={invoice.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                    <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">
+                      {invoice.company_name || <span className="text-slate-400 italic">Bilinmiyor</span>}
+                    </td>
+                    <td className="px-6 py-4 font-medium text-slate-500 dark:text-slate-400">{invoice.invoice_no}</td>
+                    <td className="px-6 py-4 text-slate-500 dark:text-slate-400">
+                      {new Date(invoice.submission_date).toLocaleDateString('tr-TR')}
+                    </td>
+                    <td className="px-6 py-4 font-bold text-slate-900 dark:text-white">
+                      {invoice.document_type === 'İrsaliye'
+                        ? `${invoice.amount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} kg`
+                        : `₺${invoice.amount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}`}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+                        Bekliyor
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        {invoice.file_url && (
+                          <a href={invoice.file_url} target="_blank" rel="noopener noreferrer"
+                            className="inline-flex items-center justify-center p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                            title="Dosyayı Gör">
+                            <span className="material-symbols-outlined text-[20px]">visibility</span>
+                          </a>
+                        )}
+                        <button
+                          onClick={() => { setSelectedInvoice(invoice); setRejectNote(''); }}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-primary bg-primary/10 hover:bg-primary/20 border border-primary/20 rounded-lg transition-colors"
+                          title="İncele ve Onayla/Reddet"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">rate_review</span>
+                          İncele
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 p-8">
       {/* Header */}
@@ -251,95 +339,10 @@ export default function ManagerApprovalWorkspace() {
         </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
-              <tr>
-                <th className="px-6 py-4 font-semibold text-slate-900 dark:text-white">Belge Tipi</th>
-                <th className="px-6 py-4 font-semibold text-slate-900 dark:text-white">Şirket/Firma</th>
-                <th className="px-6 py-4 font-semibold text-slate-900 dark:text-white">Belge No</th>
-                <th className="px-6 py-4 font-semibold text-slate-900 dark:text-white">Gönderim Tarihi</th>
-                <th className="px-6 py-4 font-semibold text-slate-900 dark:text-white">Tutar</th>
-                <th className="px-6 py-4 font-semibold text-slate-900 dark:text-white">Durum</th>
-                <th className="px-6 py-4 font-semibold text-slate-900 dark:text-white text-right">İşlemler</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-              {isLoading ? (
-                <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
-                    <div className="flex justify-center items-center gap-2">
-                      <Loader2 className="animate-spin" size={24} /> Veriler yükleniyor...
-                    </div>
-                  </td>
-                </tr>
-              ) : filteredInvoices.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center">
-                    <div className="flex flex-col items-center justify-center">
-                      <CheckCircle2 size={40} className="text-emerald-400/50 mb-3" />
-                      <p className="text-slate-500 font-medium">
-                        {invoices.length === 0 ? 'Tüm belgeler işlenmiş durumda!' : 'Aramanızla eşleşen belge bulunamadı.'}
-                      </p>
-                      {invoices.length === 0 && (
-                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Yeni belge yüklendiğinde burada görüntülenecektir.</p>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                filteredInvoices.map((invoice) => (
-                  <tr key={invoice.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium border ${invoice.document_type === 'İrsaliye'
-                          ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800/50'
-                          : 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800/50'
-                        }`}>
-                        {invoice.document_type || 'Belirtilmedi'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">
-                      {invoice.company_name || <span className="text-slate-400 italic">Bilinmiyor</span>}
-                    </td>
-                    <td className="px-6 py-4 font-medium text-slate-500 dark:text-slate-400">{invoice.invoice_no}</td>
-                    <td className="px-6 py-4 text-slate-500 dark:text-slate-400">
-                      {new Date(invoice.submission_date).toLocaleDateString('tr-TR')}
-                    </td>
-                    <td className="px-6 py-4 font-bold text-slate-900 dark:text-white">
-                      ₺{invoice.amount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
-                        Bekliyor
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        {invoice.file_url && (
-                          <a href={invoice.file_url} target="_blank" rel="noopener noreferrer"
-                            className="inline-flex items-center justify-center p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
-                            title="Dosyayı Gör">
-                            <span className="material-symbols-outlined text-[20px]">visibility</span>
-                          </a>
-                        )}
-                        <button
-                          onClick={() => { setSelectedInvoice(invoice); setRejectNote(''); }}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-primary bg-primary/10 hover:bg-primary/20 border border-primary/20 rounded-lg transition-colors"
-                          title="İncele ve Onayla/Reddet"
-                        >
-                          <span className="material-symbols-outlined text-[18px]">rate_review</span>
-                          İncele
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+      {/* Tables */}
+      <div className="flex flex-col gap-8">
+        {renderTable(pendingFaturas, "Onay Bekleyen Faturalar", "Bekleyen fatura bulunmuyor.")}
+        {renderTable(pendingIrsaliyes, "Onay Bekleyen İrsaliyeler", "Bekleyen irsaliye bulunmuyor.")}
       </div>
 
       {/* Detail Modal */}
@@ -456,9 +459,13 @@ export default function ManagerApprovalWorkspace() {
                 <div className="space-y-4">
                   <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Finansal Bilgiler</h4>
                   <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-                    <label className="block text-sm font-bold text-slate-900 dark:text-white mb-1">Toplam Tutar</label>
+                    <label className="block text-sm font-bold text-slate-900 dark:text-white mb-1">
+                      {selectedInvoice.document_type === 'İrsaliye' ? 'Toplam Ağırlık/Miktar' : 'Toplam Tutar'}
+                    </label>
                     <div className="text-2xl font-bold text-primary font-mono">
-                      ₺{selectedInvoice.amount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
+                      {selectedInvoice.document_type === 'İrsaliye'
+                        ? `${selectedInvoice.amount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} kg`
+                        : `₺${selectedInvoice.amount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}`}
                     </div>
                   </div>
                 </div>

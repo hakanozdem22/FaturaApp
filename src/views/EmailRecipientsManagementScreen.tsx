@@ -117,6 +117,8 @@ export default function EmailRecipientsManagementScreen() {
             (roleFilter === 'Müdür' && user.role === 'manager') ||
             (roleFilter === 'Admin' && user.role === 'admin') ||
             (roleFilter === 'Muhasebe' && user.role === 'muhasebe') ||
+            (roleFilter === 'Satın Alma' && user.role === 'satinalma') ||
+            (roleFilter === 'İrsaliye Sorumlusu' && user.role === 'irsaliye') ||
             (roleFilter === 'Kullanıcı' && user.role === 'user');
         return matchesSearch && matchesRole;
     });
@@ -154,6 +156,8 @@ export default function EmailRecipientsManagementScreen() {
                             <option>Müdür</option>
                             <option>Kullanıcı</option>
                             <option>Muhasebe</option>
+                            <option>Satın Alma</option>
+                            <option>İrsaliye Sorumlusu</option>
                         </select>
                     </div>
                     <button onClick={fetchUsers} className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors border border-transparent hover:border-primary/20" title="Yenile">
@@ -222,6 +226,8 @@ export default function EmailRecipientsManagementScreen() {
                                                 <option value="manager">Müdür</option>
                                                 <option value="admin">Admin</option>
                                                 <option value="muhasebe">Muhasebe</option>
+                                                <option value="satinalma">Satın Alma</option>
+                                                <option value="irsaliye">İrsaliye Sorumlusu</option>
                                             </select>
                                         </td>
                                         <td className="px-6 py-4 text-center">

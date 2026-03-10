@@ -11,11 +11,11 @@ export default function Sidebar({ isCollapsed = false, toggleSidebar }: SidebarP
     const { user, profile, signOut } = useAuth();
 
     const navItems = [
-        { name: 'Kullanıcı Listesi', path: '/recipients', icon: 'group', roles: ['admin', 'manager'] },
-        { name: 'Fatura / İrsaliye Yükle', path: '/upload', icon: 'upload_file', roles: ['admin', 'manager', 'user'] },
-        { name: 'Faturalarım', path: '/my-invoices', icon: 'folder_open', roles: ['user'] },
+        { name: 'Kullanıcı Listesi', path: '/recipients', icon: 'group', roles: ['admin'] },
+        { name: profile?.role === 'irsaliye' ? 'İrsaliye Yükle' : profile?.role === 'user' ? 'Fatura Yükle' : 'Fatura / İrsaliye Yükle', path: '/upload', icon: 'upload_file', roles: ['admin', 'user', 'irsaliye'] },
+        { name: profile?.role === 'irsaliye' ? 'Onaya Gönderilen İrsaliyeler' : 'Faturalarım', path: '/my-invoices', icon: 'folder_open', roles: ['user', 'irsaliye'] },
         { name: 'Onaylar', path: '/approvals', icon: 'fact_check', roles: ['admin', 'manager'] },
-        { name: 'Onaylanan Faturalar', path: '/approved-invoices', icon: 'task_alt', roles: ['admin', 'manager', 'muhasebe'] },
+        { name: profile?.role === 'muhasebe' ? 'Alım Onaylı Faturalar' : profile?.role === 'satinalma' ? 'Onaylı İrsaliyeler' : 'Onaylanan Faturalar', path: '/approved-invoices', icon: 'task_alt', roles: ['admin', 'manager', 'muhasebe', 'satinalma'] },
         { name: 'Sistem Kayıtları', path: '/system-logs', icon: 'manage_search', roles: ['admin', 'manager'] },
         { name: 'Ayarlar', path: '/settings', icon: 'settings', roles: ['admin', 'manager', 'user', 'muhasebe'] },
     ];
@@ -72,7 +72,7 @@ export default function Sidebar({ isCollapsed = false, toggleSidebar }: SidebarP
                                 <span className={`material-symbols-outlined ${isActive ? 'fill-1' : 'group-hover:text-primary'} shrink-0`}>
                                     {item.icon}
                                 </span>
-                                {!isCollapsed && <span className="font-medium text-sm truncate">{item.name}</span>}
+                                {!isCollapsed && <span className="font-medium text-sm leading-tight">{item.name}</span>}
                             </Link>
                         );
                     })}
@@ -97,7 +97,7 @@ export default function Sidebar({ isCollapsed = false, toggleSidebar }: SidebarP
                                     {profile?.full_name || user?.email || 'Kullanıcı'}
                                 </p>
                                 <p className="text-xs text-slate-500 truncate capitalize">
-                                    {profile?.role === 'manager' ? 'Müdür' : profile?.role === 'admin' ? 'Admin' : profile?.role === 'muhasebe' ? 'Muhasebe' : 'Kullanıcı'}
+                                    {profile?.role === 'manager' ? 'Müdür' : profile?.role === 'admin' ? 'Admin' : profile?.role === 'muhasebe' ? 'Muhasebe' : profile?.role === 'satinalma' ? 'Satın Alma' : profile?.role === 'irsaliye' ? 'İrsaliye' : 'Kullanıcı'}
                                 </p>
                             </div>
                             <span className="material-symbols-outlined text-slate-400 text-[18px] shrink-0">logout</span>

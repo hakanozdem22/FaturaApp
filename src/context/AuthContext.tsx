@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabaseClient';
 import type { Session, User } from '@supabase/supabase-js';
 import { logAction } from '../lib/logger';
 
-export type UserRole = 'admin' | 'manager' | 'user' | 'muhasebe';
+export type UserRole = 'admin' | 'manager' | 'user' | 'muhasebe' | 'irsaliye' | 'satinalma';
 export type UserStatus = 'pending_approval' | 'active' | 'rejected' | 'deleted';
 
 export interface UserProfile {

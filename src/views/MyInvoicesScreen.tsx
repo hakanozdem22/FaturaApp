@@ -11,10 +11,11 @@ interface Invoice {
     amount: number;
     status: string;
     file_url?: string;
+    document_type?: string;
 }
 
 export default function MyInvoicesScreen() {
-    const { user } = useAuth();
+    const { user, profile } = useAuth();
     const [invoices, setInvoices] = useState<Invoice[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
@@ -66,8 +67,14 @@ export default function MyInvoicesScreen() {
     return (
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 p-8">
             <header className="flex flex-col gap-1">
-                <h2 className="text-3xl font-bold text-slate-900 dark:text-white">Faturalarım</h2>
-                <p className="text-slate-500 dark:text-slate-400">Yönetici tarafından onaylanan veya reddedilen geçmiş faturalarınızı buradan takip edebilirsiniz.</p>
+                <h2 className="text-3xl font-bold text-slate-900 dark:text-white">
+                    {profile?.role === 'irsaliye' ? 'Onaya Gönderilen İrsaliyeler' : 'Faturalarım'}
+                </h2>
+                <p className="text-slate-500 dark:text-slate-400">
+                    {profile?.role === 'irsaliye'
+                        ? 'Yönetici tarafından onaylanan veya reddedilen geçmiş irsaliyelerinizi buradan takip edebilirsiniz.'
+                        : 'Yönetici tarafından onaylanan veya reddedilen geçmiş faturalarınızı buradan takip edebilirsiniz.'}
+                </p>
             </header>
 
             <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between bg-white dark:bg-slate-900 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800">
@@ -104,7 +111,7 @@ export default function MyInvoicesScreen() {
                                 <th className="px-6 py-4 font-semibold text-slate-900 dark:text-white">Şirket/Firma</th>
                                 <th className="px-6 py-4 font-semibold text-slate-900 dark:text-white">Fatura No</th>
                                 <th className="px-6 py-4 font-semibold text-slate-900 dark:text-white">Tarih</th>
-                                <th className="px-6 py-4 font-semibold text-slate-900 dark:text-white">Tutar</th>
+                                <th className="px-6 py-4 font-semibold text-slate-900 dark:text-white">Tutar/Miktar</th>
                                 <th className="px-6 py-4 font-semibold text-slate-900 dark:text-white">Durum</th>
                                 <th className="px-6 py-4 font-semibold text-slate-900 dark:text-white text-right">Detay</th>
                             </tr>
@@ -123,7 +130,7 @@ export default function MyInvoicesScreen() {
                                     <td colSpan={6} className="px-6 py-12 text-center">
                                         <div className="flex flex-col items-center justify-center">
                                             <FileText size={40} className="text-slate-300 dark:text-slate-600 mb-3" />
-                                            <p className="text-slate-500 font-medium">İşlem görmüş fatura bulunmuyor.</p>
+                                            <p className="text-slate-500 font-medium">İşlem görmüş belge bulunmuyor.</p>
                                         </div>
                                     </td>
                                 </tr>
@@ -138,7 +145,9 @@ export default function MyInvoicesScreen() {
                                             {new Date(invoice.submission_date).toLocaleDateString('tr-TR')}
                                         </td>
                                         <td className="px-6 py-4 font-bold text-slate-900 dark:text-white">
-                                            ₺{invoice.amount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
+                                            {invoice.document_type === 'İrsaliye'
+                                                ? `${invoice.amount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} kg`
+                                                : `₺${invoice.amount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}`}
                                         </td>
                                         <td className="px-6 py-4">
                                             <StatusBadge status={invoice.status} />

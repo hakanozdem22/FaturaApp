@@ -140,7 +140,7 @@ export default function StaffInvoiceUploadDashboard() {
                 status: 'Bekliyor',
                 file_url: publicUrl,
                 user_id: user?.id,
-                document_type: '', // Başlangıçta boş
+                document_type: profile?.role === 'irsaliye' ? 'İrsaliye' : profile?.role === 'user' ? 'Fatura' : '', // Başlangıçta zorunlu ise otomatik seç
                 assigned_manager_id: '', // Başlangıçta boş
             });
 
@@ -196,7 +196,7 @@ export default function StaffInvoiceUploadDashboard() {
             await logAction(
                 user?.email,
                 'Belge Yükleme',
-                `${pendingInvoiceData.document_type} yüklendi: ${pendingInvoiceData.invoice_no} (${pendingInvoiceData.company_name}) - ₺${pendingInvoiceData.amount}`
+                `${pendingInvoiceData.document_type} yüklendi: ${pendingInvoiceData.invoice_no} (${pendingInvoiceData.company_name}) - ${pendingInvoiceData.document_type === 'İrsaliye' ? `${pendingInvoiceData.amount} kg` : `₺${pendingInvoiceData.amount}`}`
             );
 
             setPendingInvoiceData(null);
@@ -334,10 +334,11 @@ export default function StaffInvoiceUploadDashboard() {
                                                     value={pendingInvoiceData.document_type || ''}
                                                     onChange={(e) => setPendingInvoiceData({ ...pendingInvoiceData, document_type: e.target.value })}
                                                     className="w-full text-sm font-medium text-slate-900 dark:text-white bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/50 p-2.5 rounded-lg focus:ring-2 focus:ring-red-500 outline-none transition-all"
+                                                    disabled={profile?.role === 'irsaliye' || profile?.role === 'user'}
                                                 >
-                                                    <option value="" disabled>Seçiniz...</option>
-                                                    <option value="Fatura">Fatura</option>
-                                                    <option value="İrsaliye">İrsaliye</option>
+                                                    {profile?.role !== 'irsaliye' && profile?.role !== 'user' && <option value="" disabled>Seçiniz...</option>}
+                                                    {profile?.role !== 'irsaliye' && <option value="Fatura">Fatura</option>}
+                                                    {profile?.role !== 'user' && <option value="İrsaliye">İrsaliye</option>}
                                                 </select>
                                             </div>
                                             <div>
@@ -389,7 +390,9 @@ export default function StaffInvoiceUploadDashboard() {
                                         </div>
 
                                         <div>
-                                            <label className="text-xs font-medium text-emerald-600 dark:text-emerald-400 mb-1 block">Toplam Tutar (₺)</label>
+                                            <label className="text-xs font-medium text-emerald-600 dark:text-emerald-400 mb-1 block">
+                                                {pendingInvoiceData.document_type === 'İrsaliye' ? 'Toplam Ağırlık/Miktar (kg)' : 'Toplam Tutar (₺)'}
+                                            </label>
                                             <input
                                                 type="number"
                                                 step="0.01"
@@ -456,7 +459,9 @@ export default function StaffInvoiceUploadDashboard() {
             <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 p-8">
                 {/*  Header  */}
                 <header className="flex flex-col gap-1">
-                    <h2 className="text-3xl font-bold text-slate-900 dark:text-white">Fatura / İrsaliye Paneli</h2>
+                    <h2 className="text-3xl font-bold text-slate-900 dark:text-white">
+                        {profile?.role === 'irsaliye' ? 'İrsaliye Paneli' : profile?.role === 'user' ? 'Fatura Paneli' : 'Fatura / İrsaliye Paneli'}
+                    </h2>
                     <p className="text-slate-500 dark:text-slate-400">Onay için gönderdiğiniz son belgeleri yönetin ve takip edin.</p>
                 </header>
 
@@ -519,7 +524,7 @@ export default function StaffInvoiceUploadDashboard() {
                                 {isUploading ? <ScanText className="animate-pulse text-primary" size={32} /> : <FileUp size={32} />}
                             </div>
                             <p className="text-lg font-medium text-slate-900 dark:text-white">
-                                {isUploading ? 'Yapay Zeka Belgeyi İnceliyor...' : 'Fatura veya İrsaliyenizi (PDF/Fotoğraf) seçmek için tıklayın'}
+                                {isUploading ? 'Yapay Zeka Belgeyi İnceliyor...' : profile?.role === 'irsaliye' ? 'İrsaliyenizi (PDF/Fotoğraf) seçmek için tıklayın' : profile?.role === 'user' ? 'Faturanızı (PDF/Fotoğraf) seçmek için tıklayın' : 'Fatura veya İrsaliyenizi (PDF/Fotoğraf) seçmek için tıklayın'}
                             </p>
                             <p className="mt-4 text-xs text-slate-400 dark:text-slate-500">
                                 Desteklenen formatlar: PDF, JPG, PNG (Maks 20MB)
@@ -540,7 +545,7 @@ export default function StaffInvoiceUploadDashboard() {
                                         <th className="px-6 py-4 font-semibold text-slate-900 dark:text-white">Şirket/Firma</th>
                                         <th className="px-6 py-4 font-semibold text-slate-900 dark:text-white">Belge No</th>
                                         <th className="px-6 py-4 font-semibold text-slate-900 dark:text-white">Gönderim Tarihi</th>
-                                        <th className="px-6 py-4 font-semibold text-slate-900 dark:text-white">Tutar</th>
+                                        <th className="px-6 py-4 font-semibold text-slate-900 dark:text-white">Tutar/Miktar</th>
                                         <th className="px-6 py-4 font-semibold text-slate-900 dark:text-white">Durum</th>
                                         <th className="px-6 py-4 font-semibold text-slate-900 dark:text-white text-right">Dosya</th>
                                     </tr>
@@ -565,8 +570,8 @@ export default function StaffInvoiceUploadDashboard() {
                                             <tr key={invoice.id} className="group hover:bg-slate-50 dark:hover:bg-slate-800/50">
                                                 <td className="px-6 py-4">
                                                     <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium border ${invoice.document_type === 'İrsaliye'
-                                                            ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800/50'
-                                                            : 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800/50'
+                                                        ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800/50'
+                                                        : 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800/50'
                                                         }`}>
                                                         {invoice.document_type || 'Belirtilmedi'}
                                                     </span>
@@ -579,7 +584,9 @@ export default function StaffInvoiceUploadDashboard() {
                                                     {new Date(invoice.submission_date).toLocaleDateString('tr-TR')}
                                                 </td>
                                                 <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">
-                                                    ₺{invoice.amount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
+                                                    {invoice.document_type === 'İrsaliye'
+                                                        ? `${invoice.amount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} kg`
+                                                        : `₺${invoice.amount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}`}
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <StatusBadge status={invoice.status} />
